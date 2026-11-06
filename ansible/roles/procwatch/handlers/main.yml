@@ -1,0 +1,5 @@
+- name: Restart procwatch
+  ansible.builtin.systemd:
+    name: procwatch
+    state: restarted
+    daemon_reload: true

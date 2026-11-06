@@ -1,0 +1,177 @@
+# Office edge firewall: routing between the office VLANs, IPsec VPN to AWS (strongSwan),
+# BGP (FRR), firewall + NAT (nftables) and office DNS (unbound). Was EC2 user data in the
+# Case Study 2 October build; on vSphere it is this role, so State Manager keeps it in shape.
+- name: Router packages
+  ansible.builtin.apt:
+    name: [strongswan-swanctl, charon-systemd, frr, nftables, unbound, conntrack, python3-boto3]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Office interfaces (WAN stays on DHCP)
+  ansible.builtin.template:
+    src: netplan.yaml.j2
+    dest: /etc/netplan/60-office.yaml
+    mode: "0600"
+  register: netplan
+
+- name: Apply the interfaces
+  ansible.builtin.command: netplan apply
+  when: netplan is changed
+  changed_when: true
+
+- name: Route between interfaces
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-router.conf
+    mode: "0644"
+    content: |
+      net.ipv4.ip_forward = 1
+      net.ipv4.conf.all.rp_filter = 0
+      net.ipv4.conf.default.rp_filter = 0
+  register: sysctl
+
+- name: Load the kernel settings
+  ansible.builtin.command: sysctl --system
+  when: sysctl is changed
+  changed_when: true
+
+# ---------- VPN settings, published by Terraform (terraform/platform/onprem.tf) ----------
+- name: Read the VPN settings
+  ansible.builtin.command: >-
+    python3 -c "import boto3,sys; print(boto3.client('ssm', region_name=sys.argv[1]).get_parameter(Name=sys.argv[2])['Parameter']['Value'])"
+    {{ aws_region }} {{ vpn_config_param }}
+  register: vpn_raw
+  changed_when: false
+  failed_when: false
+
+- name: VPN settings
+  ansible.builtin.set_fact:
+    vpn: "{{ vpn_raw.stdout | from_json if vpn_raw.rc == 0 else {} }}"
+
+# The office host list lives in terraform/office/main.tf; Terraform publishes it here.
+- name: Read the office host list
+  ansible.builtin.command: >-
+    python3 -c "import boto3,sys; print(boto3.client('ssm', region_name=sys.argv[1]).get_parameter(Name=sys.argv[2])['Parameter']['Value'])"
+    {{ aws_region }} {{ hosts_param }}
+  register: hosts_raw
+  changed_when: false
+
+- name: Office hosts (name -> address) for the office DNS
+  ansible.builtin.set_fact:
+    office_hosts: "{{ hosts_raw.stdout | from_json }}"
+
+- name: Read the pre-shared keys
+  ansible.builtin.command: >-
+    python3 -c "import boto3,sys; print(boto3.client('ssm', region_name=sys.argv[1]).get_parameter(Name=sys.argv[2], WithDecryption=True)['Parameter']['Value'])"
+    {{ aws_region }} {{ item }}
+  loop: "{{ vpn.psk_params | default([]) }}"
+  register: psk_raw
+  changed_when: false
+  no_log: true
+
+- name: Pre-shared keys
+  ansible.builtin.set_fact:
+    vpn_psk: "{{ psk_raw.results | map(attribute='stdout') | list }}"
+  no_log: true
+
+# ---------- IPsec: two route-based tunnels (xfrm interfaces) ----------
+- name: Tunnel interfaces script
+  ansible.builtin.template:
+    src: vpn-interfaces.j2
+    dest: /usr/local/sbin/vpn-interfaces
+    mode: "0755"
+  when: vpn | length > 0
+  notify: Restart VPN
+
+- name: Tunnel interfaces service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/vpn-interfaces.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=IPsec tunnel interfaces
+      # Only needs the network card. Waiting for network-online.target here creates an ordering
+      # cycle with frr.service and systemd then silently drops this unit (found in testing).
+      BindsTo=sys-subsystem-net-devices-{{ wan_if }}.device
+      After=sys-subsystem-net-devices-{{ wan_if }}.device
+      Before=strongswan.service frr.service
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/local/sbin/vpn-interfaces
+      [Install]
+      WantedBy=multi-user.target
+  when: vpn | length > 0
+  notify: Restart VPN
+
+- name: strongSwan leaves routing to BGP
+  ansible.builtin.copy:
+    dest: /etc/strongswan.d/charon-routes.conf
+    mode: "0644"
+    content: "charon {\n  install_routes = no\n}\n"
+  notify: Restart VPN
+
+- name: Tunnels to AWS
+  ansible.builtin.template:
+    src: swanctl-aws.conf.j2
+    dest: /etc/swanctl/conf.d/aws.conf
+    mode: "0600"
+  when: vpn | length > 0
+  no_log: true
+  notify: Restart VPN
+
+# ---------- BGP ----------
+- name: Enable bgpd
+  ansible.builtin.lineinfile:
+    path: /etc/frr/daemons
+    regexp: "^bgpd="
+    line: bgpd=yes
+  notify: Restart frr
+
+- name: BGP configuration
+  ansible.builtin.template:
+    src: frr.conf.j2
+    dest: /etc/frr/frr.conf
+    owner: frr
+    group: frr
+    mode: "0640"
+  when: vpn | length > 0
+  notify: Restart frr
+
+# ---------- Firewall, NAT, DNS ----------
+- name: Firewall and NAT rules
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    mode: "0644"
+    validate: nft -c -f %s
+  notify: Reload nftables
+
+- name: Office DNS
+  ansible.builtin.template:
+    src: unbound.conf.j2
+    dest: /etc/unbound/unbound.conf.d/innovatech.conf
+    mode: "0644"
+    validate: unbound-checkconf %s
+  notify: Restart unbound
+
+- name: Router services enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ ['nftables', 'unbound', 'frr'] + (['vpn-interfaces', 'strongswan'] if vpn else []) }}"
+
+- name: resolved drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: "0755"
+
+- name: This host uses its own DNS service
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/10-office.conf
+    mode: "0644"
+    content: "[Resolve]\nDNS=127.0.0.1\nDomains=corp.innovatech.lan\n"
+  notify: Restart resolved

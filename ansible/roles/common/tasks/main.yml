@@ -1,0 +1,101 @@
+# Every node: OS updates, SSH hardening, a record of the last run.
+- name: Install all OS updates (Ubuntu)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: dist
+    autoremove: true
+  when: ansible_os_family == "Debian"
+  register: apt_result
+
+- name: Install all OS updates (Amazon Linux)
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    update_only: true
+  when: ansible_os_family == "RedHat"
+  register: dnf_result
+
+- name: Baseline packages
+  ansible.builtin.package:
+    # curl and dig: the desktop template lacks them; runbooks and simulations use them.
+    name: "{{ ['chrony', 'jq'] + (['curl', 'bind9-dnsutils'] if ansible_os_family == 'Debian' else []) }}"
+    state: present
+
+- name: SSH hardening (keys only, no root)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-innovatech.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (innovatech). Local edits are overwritten.
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      MaxAuthTries 3
+      LoginGraceTime 30
+  notify: Reload sshd
+
+- name: Record this run (evidence that the node is managed)
+  ansible.builtin.copy:
+    dest: /etc/innovatech-managed
+    mode: "0644"
+    content: |
+      role={{ node_role }}
+      last_run={{ ansible_date_time.iso8601 }}
+      updates_changed={{ (apt_result is changed) or (dnf_result is changed) }}
+
+- name: Check whether the update needs a reboot (Ubuntu)
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_flag
+
+- name: Check whether the update needs a reboot (Amazon Linux)
+  ansible.builtin.command: dnf needs-restarting -r
+  register: needs_restarting
+  changed_when: false
+  failed_when: false
+  when: ansible_os_family == "RedHat"
+
+# A local playbook cannot wait for its own reboot, so it schedules one a minute later.
+- name: Schedule reboot to finish the update
+  ansible.builtin.command: shutdown -r +1 "Innovatech update reboot"
+  when:
+    - reboot_if_needed | bool
+    - (reboot_flag.stat.exists | default(false)) or (needs_restarting.rc | default(0)) == 1
+  changed_when: true
+
+# Office hosts depend on the firewall for DNS and internet. If they boot while it is down
+# (found in testing: everything rebooted at once), the SSM agent "hibernates" for a long
+# time and the host stays unmanageable after the firewall is back. This timer wakes it.
+- name: SSM agent watchdog (Ubuntu office hosts)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    mode: "0644"
+    content: "{{ item.content }}"
+  loop:
+    - name: ssm-watchdog.service
+      content: |
+        [Unit]
+        Description=Restart the SSM agent if it hibernated while the network was down
+        [Service]
+        Type=oneshot
+        ExecStart=/bin/sh -c 'tail -n 30 /var/log/amazon/ssm/amazon-ssm-agent.log 2>/dev/null | grep -q "entering hibernation" && getent hosts ssm.{{ aws_region }}.amazonaws.com >/dev/null && snap restart amazon-ssm-agent || true'
+    - name: ssm-watchdog.timer
+      content: |
+        [Unit]
+        Description=Check the SSM agent every 5 minutes
+        [Timer]
+        OnBootSec=3min
+        OnUnitActiveSec=5min
+        [Install]
+        WantedBy=timers.target
+  when: ansible_os_family == "Debian"
+  register: watchdog_units
+
+- name: SSM agent watchdog enabled
+  ansible.builtin.systemd:
+    name: ssm-watchdog.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ watchdog_units is changed }}"
+  when: ansible_os_family == "Debian"

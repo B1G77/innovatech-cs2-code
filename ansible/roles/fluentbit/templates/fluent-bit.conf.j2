@@ -1,0 +1,61 @@
+# Managed by Ansible (innovatech). Local edits are overwritten.
+[SERVICE]
+    Flush                     5
+    Log_Level                 info
+    storage.path              /var/lib/fluent-bit/buffer
+    storage.sync              normal
+    storage.backlog.mem_limit 5M
+    # Retry at most every 60 s. The default back-off grows to ~33 min, so logs buffered during
+    # a VPN outage arrived up to half an hour after the link came back (found in failure test F4).
+    scheduler.base            5
+    scheduler.cap             60
+
+{% set inputs = [
+  {'tag': 'syslog', 'path': '/var/log/syslog', 'group': 'syslog'},
+  {'tag': 'auth', 'path': '/var/log/auth.log', 'group': 'auth'},
+  {'tag': 'detectors', 'path': '/var/log/innovatech/*.log', 'group': 'detectors'},
+] %}
+{% if node_role == 'firewall' %}
+{% set inputs = inputs + [
+  {'tag': 'suricata', 'path': '/var/log/suricata/eve.json', 'group': 'suricata'},
+  {'tag': 'firewall', 'path': '/var/log/kern.log', 'group': 'firewall'},
+] %}
+{% endif %}
+{% for i in inputs %}
+[INPUT]
+    Name              tail
+    Tag               {{ i.tag }}
+    Path              {{ i.path }}
+    DB                /var/lib/fluent-bit/{{ i.tag }}.db
+    Skip_Long_Lines   On
+    Refresh_Interval  10
+    storage.type      filesystem
+
+{% endfor %}
+{% if node_role == 'firewall' %}
+# Only IDS alerts and anomalies leave the box; flow/DNS/HTTP records stay local.
+[FILTER]
+    Name    grep
+    Match   suricata
+    Regex   log "event_type":"(alert|anomaly)"
+
+# Only firewall verdicts from the kernel log.
+[FILTER]
+    Name    grep
+    Match   firewall
+    Regex   log (FW-DROP|SOAR-BLOCK|SOAR-QUARANTINE)
+
+{% endif %}
+{% for i in inputs %}
+[OUTPUT]
+    Name                     cloudwatch_logs
+    Match                    {{ i.tag }}
+    region                   {{ aws_region }}
+    log_group_name           /innovatech/onprem/{{ i.group }}
+    log_stream_name          {{ ansible_hostname }}
+    log_key                  log
+    auto_create_group        Off
+    storage.total_limit_size 200M
+    Retry_Limit              no_limits
+
+{% endfor %}

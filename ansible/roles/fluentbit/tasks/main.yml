@@ -1,0 +1,54 @@
+# Office hosts ship logs to CloudWatch Logs with Fluent Bit. The CloudWatch endpoint name
+# resolves to the private endpoint in the hub (office DNS forwards it), so logs travel over
+# the VPN. While the VPN is down, Fluent Bit buffers on disk and retries.
+- name: Fluent Bit signing key
+  ansible.builtin.get_url:
+    url: https://packages.fluentbit.io/fluentbit.key
+    dest: /usr/share/keyrings/fluentbit.asc
+    mode: "0644"
+
+- name: Fluent Bit repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/fluentbit.asc] https://packages.fluentbit.io/ubuntu/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main"
+    filename: fluent-bit
+    state: present
+
+- name: Install Fluent Bit
+  ansible.builtin.apt:
+    name: fluent-bit
+    state: present
+
+- name: Directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /var/lib/fluent-bit/buffer
+    - /var/log/innovatech
+    - /etc/systemd/system/fluent-bit.service.d
+
+- name: Fluent Bit configuration
+  ansible.builtin.template:
+    src: fluent-bit.conf.j2
+    dest: /etc/fluent-bit/fluent-bit.conf
+    mode: "0644"
+  notify: Restart fluent-bit
+
+# A vSphere VM has no instance metadata. The SSM agent keeps the node's role credentials in
+# /root/.aws/credentials, and systemd starts Fluent Bit without HOME, so point it at that file
+# (found in testing: "Provider returned no credentials").
+- name: Fluent Bit uses the SSM agent's credentials
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/fluent-bit.service.d/10-credentials.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Environment=AWS_SHARED_CREDENTIALS_FILE=/root/.aws/credentials
+  notify: Restart fluent-bit
+
+- name: Fluent Bit running
+  ansible.builtin.systemd:
+    name: fluent-bit
+    enabled: true
+    state: started

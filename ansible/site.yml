@@ -1,0 +1,31 @@
+# One playbook for every Innovatech node (REQ-NCA-P1-05).
+# Run by SSM State Manager on each node (see terraform/platform/updates.tf):
+#   ansible-playbook -c local -i localhost, site.yml -e node_role=<role> -e bundle_dir=<dir>
+# Roles: firewall | workstation | server (office), app (cloud), ops (hub).
+- name: Innovatech node baseline, updates and agents
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+
+  vars:
+    office_roles: [firewall, workstation, server]
+    aws_region: eu-central-1
+    reboot_if_needed: true
+
+  pre_tasks:
+    - name: Refuse unknown roles
+      ansible.builtin.assert:
+        that: node_role in ['firewall', 'workstation', 'server', 'app', 'ops']
+        fail_msg: "node_role must be firewall, workstation, server, app or ops"
+
+  roles:
+    - role: common
+    - role: office_firewall
+      when: node_role == 'firewall'
+    - role: fluentbit
+      when: node_role in office_roles
+    - role: procwatch
+      when: node_role in ['workstation', 'server']
+    - role: firewall_detection
+      when: node_role == 'firewall'

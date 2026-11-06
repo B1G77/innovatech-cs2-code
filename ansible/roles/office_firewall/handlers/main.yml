@@ -1,0 +1,27 @@
+- name: Restart VPN
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    daemon_reload: true
+  loop: [vpn-interfaces, strongswan]
+  when: vpn | length > 0
+
+- name: Restart frr
+  ansible.builtin.systemd:
+    name: frr
+    state: restarted
+
+- name: Reload nftables
+  ansible.builtin.systemd:
+    name: nftables
+    state: reloaded
+
+- name: Restart unbound
+  ansible.builtin.systemd:
+    name: unbound
+    state: restarted
+
+- name: Restart resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted

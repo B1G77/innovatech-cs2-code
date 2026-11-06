@@ -1,0 +1,146 @@
+# Office firewall: Suricata IDS, the traffic analyzer (pyshark), a rolling packet capture
+# for baselines, and flow byte accounting for the volume check.
+
+# ---------- Suricata ----------
+- name: fw01's address on the WAN (part of the home network for the IDS)
+  ansible.builtin.set_fact:
+    wan_ip: "{{ ansible_facts[wan_if]['ipv4']['address'] }}"
+
+- name: Install Suricata and capture tools
+  ansible.builtin.apt:
+    name: [suricata, tcpdump, python3-venv, python3-boto3, conntrack]
+    state: present
+
+- name: Suricata listens on the office interface
+  ansible.builtin.lineinfile:
+    path: /etc/default/suricata
+    regexp: "^IFACE="
+    line: "IFACE={{ ws_if }}"
+  notify: Restart suricata
+
+- name: Suricata home network and af-packet interface
+  ansible.builtin.replace:
+    path: /etc/suricata/suricata.yaml
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - { regexp: 'HOME_NET: "\[192\.168\.0\.0/16,10\.0\.0\.0/8,172\.16\.0\.0/12\]"', replace: 'HOME_NET: "[{{ office_cidr }},{{ wan_ip }}]"' }
+    # Three capture points: both office VLANs, and the WAN for connection attempts to fw01
+    # itself. Outbound traffic on the WAN is already NATed to fw01's address; seen there it
+    # would look like fw01 attacking the internet, so the WAN filter keeps only inbound SYNs.
+    - regexp: '- interface: eth0\n'
+      replace: |
+        - interface: {{ wan_if }}
+            cluster-id: 97
+            cluster-type: cluster_flow
+            bpf-filter: "dst host {{ wan_ip }} and tcp[tcpflags] & (tcp-syn|tcp-ack) == tcp-syn"
+          - interface: {{ srv_if }}
+            cluster-id: 98
+            cluster-type: cluster_flow
+            defrag: yes
+          - interface: {{ ws_if }}
+
+    - { regexp: 'community-id: false', replace: 'community-id: true' }
+  notify: Restart suricata
+
+- name: Innovatech local rules
+  ansible.builtin.copy:
+    dest: /etc/suricata/rules/local.rules
+    mode: "0644"
+    content: |
+      # Managed by Ansible (innovatech): scenario rules on top of the ET Open set.
+      alert tcp any any -> $HOME_NET any (msg:"INNOVATECH SCAN possible SYN port scan"; flags:S,12; threshold: type both, track by_src, count 30, seconds 10; classtype:attempted-recon; sid:9000001; rev:1; priority:2;)
+      alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"INNOVATECH Crypto mining stratum login"; flow:established,to_server; content:"\"method\""; content:"login"; distance:0; classtype:policy-violation; sid:9000002; rev:1; priority:1;)
+      alert tcp $HOME_NET any -> $EXTERNAL_NET [3333,4444,5555,14444] (msg:"INNOVATECH Connection to common mining pool port"; flags:S,12; classtype:policy-violation; sid:9000003; rev:1; priority:2;)
+  notify: Restart suricata
+
+- name: Load the local rules too
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    insertafter: "^rule-files:"
+    line: "  - /etc/suricata/rules/local.rules"
+  notify: Restart suricata
+
+- name: Download the ET Open ruleset
+  ansible.builtin.command: suricata-update --no-test
+  register: suricata_update
+  changed_when: "'Writing rules' in suricata_update.stderr or 'Writing rules' in suricata_update.stdout"
+  failed_when: false
+  notify: Restart suricata
+
+- name: Suricata running
+  ansible.builtin.systemd:
+    name: suricata
+    enabled: true
+    state: started
+
+# ---------- Traffic analyzer ----------
+- name: Count bytes per connection (flow accounting for the volume check)
+  ansible.builtin.shell: |
+    echo 'net.netfilter.nf_conntrack_acct = 1' > /etc/sysctl.d/91-conntrack-acct.conf
+    sysctl -q -w net.netfilter.nf_conntrack_acct=1
+  changed_when: false
+
+- name: tshark without interactive questions
+  ansible.builtin.debconf:
+    name: wireshark-common
+    question: wireshark-common/install-setuid
+    value: "false"
+    vtype: boolean
+
+- name: Install tshark
+  ansible.builtin.apt:
+    name: tshark
+    state: present
+
+- name: Python environment with pyshark
+  ansible.builtin.pip:
+    name: pyshark
+    virtualenv: /opt/innovatech/venv
+    virtualenv_command: python3 -m venv --system-site-packages
+
+- name: Log and state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: [/opt/innovatech/detectors, /var/log/innovatech, /var/lib/innovatech, /var/log/pcap]
+
+- name: Detector code from the bundle
+  ansible.builtin.copy:
+    src: "{{ bundle_dir }}/detectors/{{ item }}"
+    dest: "/opt/innovatech/detectors/{{ item }}"
+    mode: "0755"
+  loop: [traffic_analyzer.py, baseline.py, soarclient.py]
+  notify: Restart traffic-analyzer
+
+- name: Services
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}.service"
+    mode: "0644"
+    content: |
+      [Unit]
+      Description={{ item.description }}
+      After=network-online.target
+      [Service]
+      ExecStart={{ item.exec }}
+      Restart=always
+      RestartSec=10
+      [Install]
+      WantedBy=multi-user.target
+  loop:
+    - name: traffic-analyzer
+      description: Innovatech traffic pattern analyzer
+      exec: /opt/innovatech/venv/bin/python /opt/innovatech/detectors/traffic_analyzer.py --interface {{ wan_if }},{{ ws_if }},{{ srv_if }} --region {{ aws_region }}
+    - name: pcap-ring
+      description: Rolling packet capture for traffic baselines (10 x 20 MB)
+      exec: /usr/bin/tcpdump -Z root -i any -n -s 512 -C 20 -W 10 -w /var/log/pcap/ring.pcap not (udp port 500 or udp port 4500 or esp)
+  notify: Restart traffic-analyzer
+
+- name: Detection services running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: [traffic-analyzer, pcap-ring]

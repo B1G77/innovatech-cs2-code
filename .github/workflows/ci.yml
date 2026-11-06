@@ -1,0 +1,34 @@
+# Fast checks on every push and pull request, on the self-hosted runner (ops host).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: [self-hosted, innovatech-cs2]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests (SOAR rules, normaliser, actions, detectors)
+        run: python3 -m pytest -q tests
+
+      - name: Terraform format
+        run: terraform fmt -check -recursive terraform
+
+      - name: Terraform validate
+        run: |
+          for root in terraform/platform terraform/soar terraform/office; do
+            terraform -chdir=$root init -backend=false -input=false >/dev/null
+            terraform -chdir=$root validate
+          done
+        env:  # validate only needs the provider settings to be present, not a real vCenter
+          VSPHERE_USER: ci
+          VSPHERE_PASSWORD: ci
+          VSPHERE_SERVER: ci
+
+      - name: Ansible syntax
+        run: ansible-playbook --syntax-check -i localhost, -c local ansible/site.yml -e node_role=server -e bundle_dir=/tmp

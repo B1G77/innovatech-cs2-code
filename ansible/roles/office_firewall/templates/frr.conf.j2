@@ -1,0 +1,22 @@
+! Managed by Ansible (innovatech). Learn the cloud routes, announce the office range.
+frr defaults traditional
+hostname fw01
+ip route {{ office_cidr }} blackhole
+router bgp {{ vpn.onprem_asn }}
+ bgp router-id {{ fw_ip }}
+ no bgp ebgp-requires-policy
+ bgp bestpath as-path multipath-relax
+ neighbor {{ vpn.t1_aws_inside }} remote-as {{ vpn.aws_asn }}
+ neighbor {{ vpn.t1_aws_inside }} timers 10 30
+ neighbor {{ vpn.t2_aws_inside }} remote-as {{ vpn.aws_asn }}
+ neighbor {{ vpn.t2_aws_inside }} timers 10 30
+ address-family ipv4 unicast
+  network {{ office_cidr }}
+  maximum-paths 2
+ exit-address-family
+!
+! Traffic this host itself sends to the cloud (DNS forwarding, log shipping) must leave with
+! its office address, not the tunnel's 169.254.x address, or the replies cannot come back.
+route-map SET-SRC permit 10
+ set src {{ fw_ip }}
+ip protocol bgp route-map SET-SRC

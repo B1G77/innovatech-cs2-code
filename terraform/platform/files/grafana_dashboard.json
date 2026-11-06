@@ -1,0 +1,1610 @@
+{
+ "title": "Innovatech - Hybrid operations and SOAR",
+ "uid": "innovatech-cs2",
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "refresh": "1m",
+ "time": {
+  "from": "now-3h",
+  "to": "now"
+ },
+ "tags": [
+  "innovatech",
+  "soar"
+ ],
+ "panels": [
+  {
+   "type": "row",
+   "title": "SOAR - is the response system healthy?",
+   "id": 1,
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 1
+   },
+   "collapsed": false
+  },
+  {
+   "type": "stat",
+   "title": "Events processed",
+   "id": 2,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "EventsProcessed",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "sum"
+     ]
+    },
+    "colorMode": "background"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Actions succeeded",
+   "id": 3,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 4,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "ActionsSucceeded",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "sum"
+     ]
+    },
+    "colorMode": "background"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Actions failed",
+   "id": 4,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "Any failed automated action needs a human: check the Step Functions execution.",
+   "gridPos": {
+    "x": 8,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "ActionsFailed",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "sum"
+     ]
+    },
+    "colorMode": "background"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Playbook runs failed",
+   "id": 5,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/States",
+     "metricName": "ExecutionsFailed",
+     "dimensions": {
+      "StateMachineArn": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "sum"
+     ]
+    },
+    "colorMode": "background"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Heartbeats (expect 1 per 5 min)",
+   "id": 6,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "Heartbeat",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "sum"
+     ]
+    },
+    "colorMode": "background"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Dead-letter messages",
+   "id": 7,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "Messages waiting now (a sum over time would overstate it). Replay: scripts/redrive-dlq.py",
+   "gridPos": {
+    "x": 20,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/SQS",
+     "metricName": "ApproximateNumberOfMessagesVisible",
+     "dimensions": {
+      "QueueName": "innovatech-soar-dlq"
+     },
+     "matchExact": false,
+     "statistic": "Maximum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Events by response tier",
+   "id": 8,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "0 observe, 1 notify, 2 contain network, 3 isolate host",
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "EventsProcessed",
+     "dimensions": {
+      "Tier": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "tier ${PROP('Dim.Tier')}",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Automated actions",
+   "id": 9,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 8,
+    "y": 5,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "ActionsSucceeded",
+     "dimensions": {
+      "Action": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "ok ${PROP('Dim.Action')}",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "ActionsFailed",
+     "dimensions": {
+      "Action": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "failed ${PROP('Dim.Action')}",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Detection-to-response latency",
+   "id": 10,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 5,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "ProcessingLatency",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "p95",
+     "period": "60",
+     "label": "p95",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/SOAR",
+     "metricName": "ProcessingLatency",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Average",
+     "period": "60",
+     "label": "avg",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "row",
+   "title": "Security signals - office and cloud",
+   "id": 11,
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 24,
+    "h": 1
+   },
+   "collapsed": false
+  },
+  {
+   "type": "timeseries",
+   "title": "IDS alerts (Suricata)",
+   "id": 12,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 13,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/Security",
+     "metricName": "IdsAlerts",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "all",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/Security",
+     "metricName": "IdsHighAlerts",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "high",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Failed SSH logins",
+   "id": 13,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 8,
+    "y": 13,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/Security",
+     "metricName": "SshFailures",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Firewall",
+   "id": 14,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 13,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/Security",
+     "metricName": "FirewallDrops",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "policy drops",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/Security",
+     "metricName": "SoarBlockedPkts",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "dropped by SOAR block",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Detector findings (traffic + process)",
+   "id": 15,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 20,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/Security",
+     "metricName": "DetectorFindings",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Rejected flows (all VPCs)",
+   "id": 16,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 8,
+    "y": 20,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "Innovatech/Security",
+     "metricName": "FlowLogRejects",
+     "dimensions": {},
+     "matchExact": true,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Normalised security events by type (OpenSearch)",
+   "id": 17,
+   "datasource": {
+    "type": "grafana-opensearch-datasource",
+    "uid": "opensearch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 20,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-opensearch-datasource",
+      "uid": "opensearch"
+     },
+     "query": "log_type:event",
+     "queryType": "lucene",
+     "metrics": [
+      {
+       "type": "count",
+       "id": "1"
+      }
+     ],
+     "bucketAggs": [
+      {
+       "type": "terms",
+       "id": "2",
+       "field": "type.keyword",
+       "settings": {
+        "size": "10",
+        "order": "desc",
+        "orderBy": "_count",
+        "min_doc_count": "1"
+       }
+      },
+      {
+       "type": "date_histogram",
+       "id": "3",
+       "field": "@timestamp",
+       "settings": {
+        "interval": "auto"
+       }
+      }
+     ],
+     "timeField": "@timestamp"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 30,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "row",
+   "title": "Hybrid network",
+   "id": 18,
+   "gridPos": {
+    "x": 0,
+    "y": 27,
+    "w": 24,
+    "h": 1
+   },
+   "collapsed": false
+  },
+  {
+   "type": "timeseries",
+   "title": "VPN tunnels up (1 = up)",
+   "id": 19,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 28,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/VPN",
+     "metricName": "TunnelState",
+     "dimensions": {
+      "TunnelIpAddress": "*"
+     },
+     "matchExact": false,
+     "statistic": "Maximum",
+     "period": "60",
+     "label": "${PROP('Dim.TunnelIpAddress')}",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "VPN traffic",
+   "id": 20,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 8,
+    "y": 28,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/VPN",
+     "metricName": "TunnelDataIn",
+     "dimensions": {
+      "VpnId": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "in",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/VPN",
+     "metricName": "TunnelDataOut",
+     "dimensions": {
+      "VpnId": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "out",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Transit Gateway traffic",
+   "id": 21,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 28,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/TransitGateway",
+     "metricName": "BytesIn",
+     "dimensions": {
+      "TransitGateway": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "in",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/TransitGateway",
+     "metricName": "PacketDropCountNoRoute",
+     "dimensions": {
+      "TransitGateway": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "dropped: no route",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "row",
+   "title": "Hosts and services",
+   "id": 22,
+   "gridPos": {
+    "x": 0,
+    "y": 35,
+    "w": 24,
+    "h": 1
+   },
+   "collapsed": false
+  },
+  {
+   "type": "timeseries",
+   "title": "CPU per instance",
+   "id": 23,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 36,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 1,
+     "expression": "SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 300)",
+     "id": "",
+     "label": "",
+     "period": "300"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "App: healthy servers / requests",
+   "id": 24,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 8,
+    "y": 36,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/ApplicationELB",
+     "metricName": "HealthyHostCount",
+     "dimensions": {
+      "TargetGroup": "*",
+      "LoadBalancer": "*"
+     },
+     "matchExact": false,
+     "statistic": "Minimum",
+     "period": "60",
+     "label": "healthy",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/ApplicationELB",
+     "metricName": "RequestCount",
+     "dimensions": {
+      "LoadBalancer": "*"
+     },
+     "matchExact": false,
+     "statistic": "Sum",
+     "period": "60",
+     "label": "requests",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Log database (OpenSearch)",
+   "id": 25,
+   "datasource": {
+    "type": "cloudwatch",
+    "uid": "cloudwatch"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 36,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/ES",
+     "metricName": "ClusterStatus.green",
+     "dimensions": {
+      "DomainName": "*",
+      "ClientId": "*"
+     },
+     "matchExact": false,
+     "statistic": "Maximum",
+     "period": "60",
+     "label": "green",
+     "id": "",
+     "expression": ""
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "cloudwatch",
+      "uid": "cloudwatch"
+     },
+     "region": "default",
+     "queryMode": "Metrics",
+     "metricQueryType": 0,
+     "metricEditorMode": 0,
+     "namespace": "AWS/ES",
+     "metricName": "SearchableDocuments",
+     "dimensions": {
+      "DomainName": "*",
+      "ClientId": "*"
+     },
+     "matchExact": false,
+     "statistic": "Maximum",
+     "period": "60",
+     "label": "documents",
+     "id": "",
+     "expression": ""
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "type": "row",
+   "title": "SOAR cases and raw events (OpenSearch)",
+   "id": 26,
+   "gridPos": {
+    "x": 0,
+    "y": 43,
+    "w": 24,
+    "h": 1
+   },
+   "collapsed": false
+  },
+  {
+   "type": "logs",
+   "title": "Latest SOAR cases",
+   "id": 27,
+   "datasource": {
+    "type": "grafana-opensearch-datasource",
+    "uid": "opensearch"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 44,
+    "w": 12,
+    "h": 10
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-opensearch-datasource",
+      "uid": "opensearch"
+     },
+     "query": "log_type:case",
+     "queryType": "lucene",
+     "metrics": [
+      {
+       "type": "logs",
+       "id": "1"
+      }
+     ],
+     "bucketAggs": [],
+     "timeField": "@timestamp"
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending"
+   }
+  },
+  {
+   "type": "logs",
+   "title": "Suricata IDS alerts",
+   "id": 28,
+   "datasource": {
+    "type": "grafana-opensearch-datasource",
+    "uid": "opensearch"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 44,
+    "w": 12,
+    "h": 10
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-opensearch-datasource",
+      "uid": "opensearch"
+     },
+     "query": "event_type:alert",
+     "queryType": "lucene",
+     "metrics": [
+      {
+       "type": "logs",
+       "id": "1"
+      }
+     ],
+     "bucketAggs": [],
+     "timeField": "@timestamp"
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending"
+   }
+  }
+ ]
+}

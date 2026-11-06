@@ -1,0 +1,50 @@
+{
+  "_comment": "SOAR playbook rules. First matching rule wins. See docs/soar-playbook.md for the reasoning behind every tier and threshold.",
+  "tiers": {
+    "0": {"name": "observe", "actions": ["record"]},
+    "1": {"name": "notify", "actions": ["record", "notify"]},
+    "2": {"name": "contain-network", "actions": ["record", "block_ip", "notify"]},
+    "3": {"name": "isolate-host", "actions": ["record", "fw_quarantine", "isolate_host", "snapshot", "notify"]}
+  },
+  "rules": [
+    {"id": "R00-heartbeat", "match": {"type": "soar.heartbeat"}, "tier": 0, "actions": ["heartbeat"],
+     "reason": "Pipeline self-test; proves ingest, bus, playbook and actions all run."},
+    {"id": "R01-sample", "match": {"sample": true}, "tier": 1,
+     "reason": "Sample or test finding: never act on it automatically."},
+
+    {"id": "R10-cryptominer", "match": {"type": "process.cryptominer", "min_severity": 7}, "tier": 3,
+     "reason": "Miner process on an office host: confirmed compromise, contain the host."},
+    {"id": "R11-lateral-movement", "match": {"type": "process.lateral_movement", "min_severity": 7}, "tier": 3,
+     "reason": "Host is trying to spread: isolate before it reaches the next host."},
+    {"id": "R12-exfiltration", "match": {"type": "process.exfiltration", "min_severity": 7}, "tier": 3,
+     "reason": "Archive-and-upload by a process: confirmed data theft, cut the host off."},
+    {"id": "R13-internal-scan", "match": {"type": "network.portscan", "scope": "internal"}, "tier": 3,
+     "reason": "An office host scanning the network is reconnaissance from inside: isolate it."},
+    {"id": "R14-internal-bruteforce", "match": {"type": "auth.ssh_failed", "scope": "internal", "min_count": 5}, "tier": 3,
+     "reason": "5+ failed logins from an internal host in 5 min: credential guessing from inside."},
+
+    {"id": "R20-external-scan", "match": {"type": "network.portscan", "scope": "external"}, "tier": 2,
+     "reason": "Internet scan of the office: block the source for an hour at the edge."},
+    {"id": "R21-external-bruteforce", "match": {"type": "auth.ssh_failed", "scope": "external", "min_count": 10}, "tier": 2,
+     "reason": "10+ failed logins from one internet address in 5 min: block it for an hour."},
+    {"id": "R22-ids-high-external", "match": {"type": "ids.alert", "scope": "external", "min_severity": 7}, "tier": 2,
+     "reason": "High-severity IDS signature from the internet: block the source."},
+    {"id": "R23-ids-high-internal", "match": {"type": "ids.alert", "scope": "internal", "min_severity": 8}, "tier": 3,
+     "reason": "High-severity IDS signature from an office host (for example a mining check-in)."},
+    {"id": "R24-guardduty-high", "match": {"type_prefix": "guardduty.", "min_severity": 7}, "tier": 3,
+     "reason": "GuardDuty high severity on a cloud instance: isolate it."},
+
+    {"id": "R30-guardduty-medium", "match": {"type_prefix": "guardduty.", "min_severity": 4}, "tier": 1,
+     "reason": "GuardDuty medium: a person decides."},
+    {"id": "R31-ssh-failures", "match": {"type": "auth.ssh_failed", "min_count": 3}, "tier": 1,
+     "reason": "A few failed logins: worth a look, not worth a block."},
+    {"id": "R32-anomaly", "match": {"type_prefix": "metric."}, "tier": 1,
+     "reason": "Statistical anomaly is a soft signal: notify only."},
+    {"id": "R33-soft-network", "match": {"type_in": ["network.exfil_volume", "network.dns_tunnel", "network.unusual_protocol"]}, "tier": 1,
+     "reason": "Behavioural network signal without host proof: notify only."},
+    {"id": "R34-medium", "match": {"min_severity": 5}, "tier": 1,
+     "reason": "Medium severity without a specific playbook: notify."},
+
+    {"id": "R99-default", "match": {}, "tier": 0, "reason": "Low severity: keep for investigation only."}
+  ]
+}

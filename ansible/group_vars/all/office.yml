@@ -1,0 +1,17 @@
+# The office network on vSphere (office_firewall and firewall_detection roles). Interface
+# names follow the NIC order in terraform/office/main.tf.
+wan_if: ens160            # 0121_Internet-DHCP: the netlab segment, stands in for the internet
+ws_if: ens192             # PVlanA: workstations
+srv_if: ens224            # PVlanB: servers
+
+fw_ip: 10.10.0.10         # loopback-style service address: DNS, BGP router id, source of own traffic
+ws_gw: 10.10.10.1
+srv_gw: 10.10.20.1
+office_cidr: 10.10.0.0/16
+srv_cidr: 10.10.20.0/24
+cloud_cidrs: [10.30.0.0/16, 10.40.0.0/16]
+cloud_resolvers: [10.30.10.53, 10.30.11.53]   # Route 53 inbound endpoint (terraform/platform/dns.tf)
+upstream_dns: [192.168.200.10, 192.168.200.11] # netlab DNS, stands in for the ISP's resolver
+
+vpn_config_param: /innovatech/onprem/vpn-config
+hosts_param: /innovatech/onprem/hosts   # office host list, written by terraform/office

@@ -1,0 +1,36 @@
+# Managed by Ansible (innovatech). fw01 sits behind the netlab NAT: it starts both tunnels
+# (AWS cannot reach it first), identifies itself by the public NAT address and uses NAT-T.
+connections {
+{% for t in [1, 2] %}
+  aws-t{{ t }} {
+    version = 2
+    remote_addrs = {{ vpn['t' ~ t ~ '_outside'] }}
+    proposals = aes256-sha256-modp2048
+    dpd_delay = 10s
+    encap = yes
+    local { auth = psk
+            id = {{ vpn.public_ip }} }
+    remote { auth = psk
+             id = {{ vpn['t' ~ t ~ '_outside'] }} }
+    children {
+      t{{ t }} {
+        local_ts = 0.0.0.0/0
+        remote_ts = 0.0.0.0/0
+        esp_proposals = aes256-sha256-modp2048
+        if_id_in = {{ t }}
+        if_id_out = {{ t }}
+        start_action = start
+        dpd_action = restart
+        close_action = start
+      }
+    }
+  }
+{% endfor %}
+}
+secrets {
+{% for t in [1, 2] %}
+  ike-t{{ t }} { id-a = {{ vpn.public_ip }}
+           id-b = {{ vpn['t' ~ t ~ '_outside'] }}
+           secret = "{{ vpn_psk[t - 1] }}" }
+{% endfor %}
+}

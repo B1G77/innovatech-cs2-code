@@ -1,0 +1,149 @@
+#!/bin/bash
+# Ops host first boot: OpenSearch users/retention, Grafana (central dashboard), pipeline runner.
+# Log: /var/log/cloud-init-output.log
+set -euxo pipefail
+hostnamectl set-hostname ops
+
+# dnf may be busy with the first Ansible update run (SSM State Manager); wait and retry.
+dnf_install() { for i in $(seq 1 30); do dnf install -y "$@" && return 0; sleep 20; done; return 1; }
+
+param() { aws ssm get-parameter --region ${region} --name "$1" --with-decryption --query Parameter.Value --output text; }
+
+# ---------- OpenSearch: least-privilege users, index template, 30-day retention ----------
+OS=https://${os_endpoint}
+set +x  # passwords below must not reach the boot log
+ADMIN="admin:$(param ${os_master_param})"
+for i in $(seq 1 60); do curl -sf -u "$ADMIN" "$OS/_cluster/health" && break; sleep 20; done
+
+# Idempotent: a rebuilt ops host re-runs these; "already exists" (409) is fine.
+os() { curl -s -o /tmp/os.out -w '%%{http_code}' -u "$ADMIN" -H 'Content-Type: application/json' -X "$1" "$OS/$2" -d "$3" | grep -qE '^(200|201|409)$' || { cat /tmp/os.out; echo " <- $1 $2 failed"; }; }
+
+os PUT _plugins/_security/api/roles/innovatech_ingest '{
+  "cluster_permissions": ["cluster_monitor", "indices:data/write/bulk"],
+  "index_permissions": [{
+    "index_patterns": ["logs-*", "soar-*"],
+    "allowed_actions": ["crud", "create_index", "indices:admin/mapping/put"]
+  }]
+}'
+os PUT _plugins/_security/api/internalusers/ingest "{\"password\": \"$(param ${os_ingest_param})\"}"
+os PUT _plugins/_security/api/rolesmapping/innovatech_ingest '{"users": ["ingest"]}'
+os PUT _plugins/_security/api/internalusers/grafana "{\"password\": \"$(param ${os_grafana_param})\"}"
+# Read-only for dashboards. The built-in "readall" role cannot read mappings, which the
+# Grafana OpenSearch plugin needs (found in testing: "Index not found: logs-*").
+os PUT _plugins/_security/api/roles/innovatech_dashboards '{
+  "cluster_permissions": ["cluster_composite_ops_ro", "cluster_monitor"],
+  "index_permissions": [{
+    "index_patterns": ["logs-*", "soar-*"],
+    "allowed_actions": ["read", "indices:admin/mappings/get", "indices:monitor/settings/get", "indices:admin/get"]
+  }]
+}'
+os PUT _plugins/_security/api/rolesmapping/innovatech_dashboards '{"users": ["grafana"]}'
+
+os PUT _index_template/innovatech '{
+  "index_patterns": ["logs-*", "soar-*"],
+  "template": {
+    "settings": { "number_of_shards": 1, "number_of_replicas": 1 },
+    "mappings": { "properties": {
+      "@timestamp": { "type": "date" },
+      "severity":   { "type": "integer" },
+      "tier":       { "type": "integer" },
+      "src_ip":     { "type": "ip", "ignore_malformed": true },
+      "dst_ip":     { "type": "ip", "ignore_malformed": true }
+    } }
+  }
+}'
+
+os PUT _plugins/_ism/policies/innovatech-retention '{
+  "policy": {
+    "description": "Delete log indices after ${os_retention_days} days",
+    "default_state": "hot",
+    "states": [
+      { "name": "hot", "actions": [], "transitions": [{ "state_name": "delete", "conditions": { "min_index_age": "${os_retention_days}d" } }] },
+      { "name": "delete", "actions": [{ "delete": {} }], "transitions": [] }
+    ],
+    "ism_template": [{ "index_patterns": ["logs-*", "soar-*"], "priority": 100 }]
+  }
+}'
+
+set -x
+
+# ---------- Grafana: CloudWatch metrics + OpenSearch logs on one dashboard ----------
+cat > /etc/yum.repos.d/grafana.repo <<'REPO'
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+REPO
+dnf_install grafana
+grafana cli --homepath /usr/share/grafana plugins install grafana-opensearch-datasource
+
+set +x
+GRAFANA_OS_PW=$(param ${os_grafana_param})
+cat > /etc/grafana/provisioning/datasources/innovatech.yaml <<YAML
+apiVersion: 1
+datasources:
+  - name: CloudWatch
+    uid: cloudwatch
+    type: cloudwatch
+    isDefault: true
+    jsonData:
+      authType: default
+      defaultRegion: ${region}
+  - name: OpenSearch
+    uid: opensearch
+    type: grafana-opensearch-datasource
+    url: $OS
+    basicAuth: true
+    basicAuthUser: grafana
+    secureJsonData:
+      basicAuthPassword: $GRAFANA_OS_PW
+    jsonData:
+      database: "logs-*"
+      timeField: "@timestamp"
+      flavor: opensearch
+      version: "2.19.0"
+      pplEnabled: true
+YAML
+chown root:grafana /etc/grafana/provisioning/datasources/innovatech.yaml
+chmod 640 /etc/grafana/provisioning/datasources/innovatech.yaml
+set -x
+
+cat > /etc/grafana/provisioning/dashboards/innovatech.yaml <<'YAML'
+apiVersion: 1
+providers:
+  - name: innovatech
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
+YAML
+install -d -o grafana -g grafana /var/lib/grafana/dashboards
+aws s3 cp "s3://${artifact_bucket}/${dashboard_key}" /var/lib/grafana/dashboards/innovatech-cs2.json --region ${region}
+
+# Localhost only: reached through a Session Manager port-forward.
+set +x
+cat >> /etc/sysconfig/grafana-server <<ENV
+GF_SERVER_HTTP_ADDR=127.0.0.1
+GF_SECURITY_ADMIN_PASSWORD=$(param ${grafana_pw_param})
+GF_USERS_ALLOW_SIGN_UP=false
+GF_AUTH_ANONYMOUS_ENABLED=false
+ENV
+chmod 640 /etc/sysconfig/grafana-server
+set -x
+systemctl enable --now grafana-server
+
+# ---------- GitHub Actions runner (registered by scripts/register-runner.sh) ----------
+dnf_install git jq libicu python3-pip unzip dnf-plugins-core
+dnf config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+dnf_install terraform
+pip3 install -q pytest ansible-core boto3 psutil
+
+useradd --system --create-home --home-dir /opt/actions-runner runner
+RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r .tag_name | tr -d v)
+curl -sL "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz" \
+  | tar -xz -C /opt/actions-runner
+chown -R runner:runner /opt/actions-runner

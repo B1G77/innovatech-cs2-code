@@ -1,0 +1,42 @@
+# Office workstations and servers: the process watcher (Flavor A).
+- name: Python libraries
+  ansible.builtin.apt:
+    name: [python3-psutil, python3-boto3]
+    state: present
+
+- name: Detector directory
+  ansible.builtin.file:
+    path: /opt/innovatech/detectors
+    state: directory
+    mode: "0755"
+
+- name: Detector code from the bundle
+  ansible.builtin.copy:
+    src: "{{ bundle_dir }}/detectors/{{ item }}"
+    dest: "/opt/innovatech/detectors/{{ item }}"
+    mode: "0755"
+  loop: [procwatch.py, soarclient.py]
+  notify: Restart procwatch
+
+- name: Service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/procwatch.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Innovatech process watcher (sends findings to the SOAR)
+      After=network-online.target
+      [Service]
+      ExecStart=/usr/bin/python3 /opt/innovatech/detectors/procwatch.py --region {{ aws_region }}
+      Restart=always
+      RestartSec=10
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart procwatch
+
+- name: Process watcher running
+  ansible.builtin.systemd:
+    name: procwatch
+    enabled: true
+    state: started
+    daemon_reload: true

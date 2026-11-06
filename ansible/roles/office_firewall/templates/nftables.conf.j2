@@ -1,0 +1,85 @@
+#!/usr/sbin/nft -f
+# Managed by Ansible (innovatech). Zones: WAN ({{ wan_if }}), workstations ({{ ws_if }}),
+# servers ({{ srv_if }}), the cloud (xfrm tunnels).
+# Ansible rebuilds the tables it owns; the SOAR's sets keep their entries across a reload
+# (a "flush ruleset" here emptied every active block and quarantine: found in review).
+table inet filter
+delete table inet filter
+table ip nat
+delete table ip nat
+
+# Sets the SOAR fills through SSM commands (see functions/soar/actions.py). Declaring an existing
+# set again keeps its elements; only the chain's rules are replaced.
+table inet soar {
+  set block {
+    type ipv4_addr
+    flags timeout
+  }
+  set quarantine {
+    type ipv4_addr
+  }
+  chain prerouting {
+    type filter hook prerouting priority -150; policy accept;
+  }
+}
+flush chain inet soar prerouting
+table inet soar {
+  chain prerouting {
+    ip saddr @block counter log prefix "SOAR-BLOCK " drop
+    ip saddr @quarantine tcp dport 443 accept comment "keep the management channel (SSM) and SOAR webhook"
+    ip saddr @quarantine ip daddr {{ fw_ip }} udp dport 53 accept comment "DNS for the management channel"
+    ip saddr @quarantine counter log prefix "SOAR-QUARANTINE " drop
+    ip daddr @quarantine ct state new counter log prefix "SOAR-QUARANTINE " drop
+  }
+}
+
+table inet filter {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iif lo accept
+    ct state established,related accept
+    # BGP only over the tunnels (found in testing: FRR listened on the outside too)
+    tcp dport 179 iifname "xfrm*" accept
+    # DHCP lease on the WAN
+    iifname "{{ wan_if }}" udp dport 68 accept
+    # IKE/NAT-T from the AWS tunnel endpoints
+    iifname "{{ wan_if }}" udp dport { 500, 4500 } accept
+    # Office DNS for the office and the Route 53 outbound endpoint
+    ip daddr {{ fw_ip }} meta l4proto { tcp, udp } th dport 53 ip saddr { {{ office_cidr }}, {{ cloud_cidrs | join(', ') }} } accept
+    # Management: SSH from the office and from the netlab (the lab VPN)
+    tcp dport 22 accept
+    icmp type { echo-request, destination-unreachable, time-exceeded } accept
+    counter log prefix "FW-DROP input " drop
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+    ct state established,related accept
+    tcp flags syn tcp option maxseg size set rt mtu
+
+    # cloud -> office: servers yes, workstations no
+    iifname "xfrm*" ip daddr {{ srv_cidr }} accept
+    iifname "xfrm*" counter log prefix "FW-DROP cloud-to-ws " drop
+
+    # office -> cloud
+    ip saddr {{ office_cidr }} ip daddr { {{ cloud_cidrs | join(', ') }} } oifname "xfrm*" accept
+
+    # workstations -> servers: only the services they use
+    iifname "{{ ws_if }}" oifname "{{ srv_if }}" tcp dport { 22, 53, 80, 443 } accept
+    iifname "{{ ws_if }}" oifname "{{ srv_if }}" udp dport 53 accept
+    ip saddr {{ office_cidr }} ip daddr {{ office_cidr }} counter log prefix "FW-DROP internal " drop
+
+    # office -> internet, never into other netlab networks
+    ip saddr {{ office_cidr }} oifname "{{ wan_if }}" ip daddr != { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } accept
+    ip saddr {{ office_cidr }} oifname "{{ wan_if }}" ip daddr { {{ upstream_dns | join(', ') }} } udp dport 53 accept
+
+    counter log prefix "FW-DROP " drop
+  }
+}
+
+table ip nat {
+  chain postrouting {
+    type nat hook postrouting priority 100;
+    oifname "{{ wan_if }}" ip saddr {{ office_cidr }} masquerade
+  }
+}

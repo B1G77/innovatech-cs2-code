@@ -1,0 +1,25 @@
+# Run the update/configuration playbook on every node now (instead of waiting for Sunday),
+# then show the patch compliance of the whole fleet.
+name: updates
+
+on:
+  workflow_dispatch:
+    inputs:
+      role:
+        description: "Node role to update (or all)"
+        required: true
+        default: all
+        type: choice
+        options: [all, firewall, workstation, server, app, ops]
+
+env:
+  AWS_REGION: eu-central-1
+  AWS_DEFAULT_REGION: eu-central-1
+
+jobs:
+  update:
+    runs-on: [self-hosted, innovatech-cs2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the Ansible associations now
+        run: scripts/run-updates.sh "${{ inputs.role }}"

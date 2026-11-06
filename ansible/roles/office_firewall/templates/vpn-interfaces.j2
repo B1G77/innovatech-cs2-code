@@ -1,0 +1,9 @@
+#!/bin/bash
+# Managed by Ansible (innovatech). Creates the tunnel interfaces before strongSwan starts.
+set -e
+ip link show xfrm1 >/dev/null 2>&1 || ip link add xfrm1 type xfrm dev {{ wan_if }} if_id 1
+ip link show xfrm2 >/dev/null 2>&1 || ip link add xfrm2 type xfrm dev {{ wan_if }} if_id 2
+ip addr replace {{ vpn.t1_cgw_inside }}/30 dev xfrm1
+ip addr replace {{ vpn.t2_cgw_inside }}/30 dev xfrm2
+ip link set xfrm1 mtu 1400 up
+ip link set xfrm2 mtu 1400 up

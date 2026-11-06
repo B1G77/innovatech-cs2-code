@@ -1,0 +1,47 @@
+# Network, hosts, monitoring and configuration management (terraform/platform).
+# Plan on pull requests; apply on main. Changing ansible/ or detectors/ makes a new bundle,
+# which re-runs the Ansible association on every node: that is how config changes roll out.
+name: infrastructure
+
+on:
+  pull_request:
+    paths: ["terraform/platform/**", "ansible/**", "detectors/**", ".github/workflows/infra.yml"]
+  push:
+    branches: [main]
+    paths: ["terraform/platform/**", "ansible/**", "detectors/**", ".github/workflows/infra.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: terraform-platform
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+  TF_VAR_profile: ""                       # use the ops host's IAM role
+  TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+  TF_PLUGIN_CACHE_DIR: /opt/actions-runner/.terraform-cache
+  AWS_REGION: eu-central-1
+
+jobs:
+  terraform:
+    runs-on: [self-hosted, innovatech-cs2]
+    defaults:
+      run:
+        working-directory: terraform/platform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tests first
+        working-directory: .
+        run: python3 -m pytest -q tests
+
+      - name: Init
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR" && terraform init -backend-config="profile="
+
+      - name: Plan
+        run: terraform plan -out=tfplan
+
+      - name: Apply (main only)
+        if: github.event_name != 'pull_request'
+        run: terraform apply tfplan

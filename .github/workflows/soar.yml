@@ -1,0 +1,56 @@
+# SOAR components (functions/ + terraform/soar): test -> deploy -> smoke test.
+# The smoke test posts a harmless test event to the private webhook and waits for the
+# playbook to record it, proving the deployed chain works end to end.
+name: soar
+
+on:
+  pull_request:
+    paths: ["functions/**", "terraform/soar/**", "tests/**", ".github/workflows/soar.yml"]
+  push:
+    branches: [main]
+    paths: ["functions/**", "terraform/soar/**", "tests/**", ".github/workflows/soar.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: terraform-soar
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+  TF_VAR_profile: ""
+  TF_PLUGIN_CACHE_DIR: /opt/actions-runner/.terraform-cache
+  AWS_REGION: eu-central-1
+  AWS_DEFAULT_REGION: eu-central-1
+
+jobs:
+  test:
+    runs-on: [self-hosted, innovatech-cs2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: python3 -m pytest -q tests
+
+  deploy:
+    needs: test
+    runs-on: [self-hosted, innovatech-cs2]
+    defaults:
+      run:
+        working-directory: terraform/soar
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Init
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR" && terraform init -backend-config="profile="
+
+      - name: Plan
+        run: terraform plan -var profile= -out=tfplan
+
+      - name: Apply (main only)
+        if: github.event_name != 'pull_request'
+        run: terraform apply tfplan
+
+      - name: Smoke test (main only)
+        if: github.event_name != 'pull_request'
+        working-directory: .
+        run: scripts/soar-smoke-test.sh

@@ -1,0 +1,37 @@
+# Managed by Ansible (innovatech). DNS for the office.
+server:
+  interface: 127.0.0.1
+  interface: {{ fw_ip }}
+  access-control: 127.0.0.0/8 allow
+  access-control: 10.0.0.0/8 allow
+  domain-insecure: "corp.innovatech.lan"
+  domain-insecure: "cloud.innovatech.internal"
+  local-zone: "corp.innovatech.lan." static
+  local-data: "fw01.corp.innovatech.lan. 300 IN A {{ fw_ip }}"
+{% for name, ip in office_hosts.items() %}
+  local-data: "{{ name }}.corp.innovatech.lan. 300 IN A {{ ip }}"
+{% endfor %}
+  log-queries: no
+  # No DNSSEC validation here: the netlab resolver and Route 53 answer for us, and validating
+  # twice through a forwarder returned SERVFAIL (found in testing).
+  module-config: "iterator"
+
+# Cloud names, and the private CloudWatch Logs endpoint, are answered by Route 53 in the hub.
+forward-zone:
+  name: "cloud.innovatech.internal."
+{% for ip in cloud_resolvers %}
+  forward-addr: {{ ip }}
+{% endfor %}
+
+forward-zone:
+  name: "logs.{{ aws_region }}.amazonaws.com."
+{% for ip in cloud_resolvers %}
+  forward-addr: {{ ip }}
+{% endfor %}
+
+# Everything else: the netlab resolver (stands in for the ISP).
+forward-zone:
+  name: "."
+{% for ip in upstream_dns %}
+  forward-addr: {{ ip }}
+{% endfor %}

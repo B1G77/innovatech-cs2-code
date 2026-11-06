@@ -1,0 +1,11 @@
+# Managed by Ansible (innovatech). The office VLANs on fw01; the WAN keeps the template's DHCP.
+network:
+  version: 2
+  ethernets:
+    {{ ws_if }}:
+      addresses: [{{ ws_gw }}/24]
+    {{ srv_if }}:
+      addresses: [{{ srv_gw }}/24]
+  dummy-devices:
+    svc0:
+      addresses: [{{ fw_ip }}/32]
